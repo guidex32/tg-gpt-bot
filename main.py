@@ -21,7 +21,7 @@ openai.api_key = OPENAI_API_KEY
 def handle_message(message):
     try:
         user_text = message.text
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Ты — дружелюбный ассистент, говоришь просто и понятно."},
