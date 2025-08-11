@@ -1,49 +1,36 @@
-import os
+import telebot
 import openai
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
+import os
 
-# токены берём из переменных окружения (Railway Variables)
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_KEY = os.getenv("OPENAI_KEY")
+# токены — лучше через переменные окружения для безопасности
+TELEGRAM_TOKEN = os.getenv("TG_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_KEY") 
 
-# инициализация
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
-openai.api_key = OPENAI_KEY
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+openai.api_key = OPENAI_API_KEY
 
-# история сообщений {user_id: [ {"role": ..., "content": ...}, ... ]}
-user_history = {}
-
-@dp.message_handler()
-async def handle_message(message: types.Message):
-    user_id = message.from_user.id
-
-    # создаём историю, если её нет
-    if user_id not in user_history:
-        user_history[user_id] = [{"role": "system", "content": "Ты дружелюбный помощник"}]
-
-    # добавляем сообщение пользователя
-    user_history[user_id].append({"role": "user", "content": message.text})
-
-    # запрос к OpenAI
+@bot.message_handler(func=lambda m: True)
+def handle_message(message):
     try:
+        user_text = message.text
+
+        # запрос к openai chat completions (gpt-4)
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # можно поменять на gpt-5
-            messages=user_history[user_id],
-            max_tokens=500
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Ты — дружелюбный ассистент, говоришь просто и понятно."},
+                {"role": "user", "content": user_text},
+            ],
+            max_tokens=500,
+            temperature=0.7,
         )
+        answer = response.choices[0].message.content.strip()
 
-        reply = response.choices[0].message["content"]
-
-        # добавляем ответ бота в историю
-        user_history[user_id].append({"role": "assistant", "content": reply})
-
-        # отправляем ответ
-        await message.answer(reply)
-
+        bot.send_message(message.chat.id, answer)
     except Exception as e:
-        await message.answer(f"Ошибка: {e}")
+        bot.send_message(message.chat.id, "ошибка, попробуй позже")
+        print("Ошибка:", e)
 
 if __name__ == "__main__":
-    executor.start_polling(dp)
+    print("бот запущен")
+    bot.infinity_polling()
